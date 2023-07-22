@@ -1,29 +1,27 @@
-export default async function handler(req, res) {
-  const response = await fetch('https://api.replicate.com/v1/predictions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      // Pinned to a specific version of Stable Diffusion
-      // See https://replicate.com/stability-ai/stable-diffussion/versions
-      version:
-        '6359a0cab3ca6e4d3320c33d79096161208e9024d174b2311e5a21b6c7e1131c',
+import Replicate from 'replicate';
 
-      // This is the text prompt that will be submitted by a form on the frontend
-      input: { prompt: req.body.prompt },
-    }),
+const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
+
+export default async function handler(req, res) {
+  if (!process.env.REPLICATE_API_TOKEN) {
+    throw new Error('The REPLICATE_API_TOKEN environment variable is not set.');
+  }
+
+  const prediction = await replicate.predictions.create({
+    version: '435061a1b5a4c1e26740464bf786efdfa9cb3a3ac488595a2de23e143fdb0117',
+    input: {
+      image:
+        'https://sketch-canvas-images.s3.ca-central-1.amazonaws.com/Archive/canvas-2203a00d-1ac7-4a9f-af37-c919600b3910.png',
+      prompt: req.body.prompt,
+    },
   });
 
-  if (response.status !== 201) {
-    let error = await response.json();
-    res.statusCode = 500;
-    res.end(JSON.stringify({ detail: error.detail }));
+  if (prediction?.error) {
+    replicate.statusCode = 500;
+    res.end(JSON.stringify({ detail: prediction.error }));
     return;
   }
 
-  const prediction = await response.json();
   res.statusCode = 201;
   res.end(JSON.stringify(prediction));
 }
